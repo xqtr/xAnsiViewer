@@ -1,0 +1,26 @@
+object Form2: TForm2
+  Left = 415
+  Height = 240
+  Top = 304
+  Width = 622
+  BorderStyle = bsDialog
+  Caption = 'View Text'
+  ClientHeight = 240
+  ClientWidth = 622
+  OnClose = FormClose
+  OnCreate = FormCreate
+  OnKeyPress = FormKeyPress
+  OnShow = FormShow
+  LCLVersion = '1.8.4.0'
+  object Memo1: TMemo
+    Left = 0
+    Height = 240
+    Top = 0
+    Width = 622
+    Align = alClient
+    OnKeyPress = Memo1KeyPress
+    ScrollBars = ssAutoBoth
+    TabOrder = 0
+    WordWrap = False
+  end
+end
