@@ -405,7 +405,7 @@ begin
   fillbyte(DosPal,0,sizeof(DosPal));
   ResetControlCode;
 end;
-
+{
 procedure TANSIPaintbox.LoadXDefaultColors;
 var
   tmpdc:tdoscolors;
@@ -431,6 +431,32 @@ DosPal[0].b:=0;
   DosPal[14]:=Str2DosColor('255,255,000');
   DosPal[15]:=Str2DosColor('255,255,255');
 
+end;       }
+
+procedure TANSIPaintbox.LoadXDefaultColors;
+var
+  tmpdc:tdoscolors;
+Begin
+  fillbyte(DosPal,0,sizeof(DosPal));
+//  DosColors[0]:=Str2DosColor('000,000,000');
+DosPal[0].r:=0;
+DosPal[0].g:=0;
+DosPal[0].b:=0;
+  DosPal[1]:=Str2DosColor('000,000,173');
+  DosPal[2]:=Str2DosColor('000,170,000');
+  DosPal[3]:=Str2DosColor('000,170,173');
+  DosPal[4]:=Str2DosColor('173,000,000');
+  DosPal[5]:=Str2DosColor('173,000,173');
+  DosPal[6]:=Str2DosColor('173,85,000');
+  DosPal[7]:=Str2DosColor('173,170,173');
+  DosPal[8]:=Str2DosColor('82,85,82');
+  DosPal[9]:=Str2DosColor('82,85,255');
+  DosPal[10]:=Str2DosColor('82,255,82');
+  DosPal[11]:=Str2DosColor('82,255,255');
+  DosPal[12]:=Str2DosColor('255,82,85');
+  DosPal[13]:=Str2DosColor('255,85,255');
+  DosPal[14]:=Str2DosColor('255,255,82');
+  DosPal[15]:=Str2DosColor('255,255,255');
 end;
 
 function TANSIPaintbox.GetCharWidth: Byte;

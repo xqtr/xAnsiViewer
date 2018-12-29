@@ -21,6 +21,8 @@ type
     FontDialog1: TFontDialog;
     Image1: TImage;
     Label2: TLabel;
+    dirlist: TListBox;
+    filelist: TListBox;
     MenuItem1: TMenuItem;
     MenuItem2: TMenuItem;
     MenuItem3: TMenuItem;
@@ -28,15 +30,23 @@ type
     MenuItem5: TMenuItem;
     MenuItem6: TMenuItem;
     MenuItem7: TMenuItem;
+    MenuItem8: TMenuItem;
     OpenDialog: TOpenDialog;
     PaintBox1: TPaintBox;
     Panel1: TPanel;
+    Panel2: TPanel;
     Panel3: TPanel;
+    Panel4: TPanel;
+    Panel5: TPanel;
+    Panel6: TPanel;
     PopupMenu1: TPopupMenu;
     PopupMenu2: TPopupMenu;
+    PopupMenu3: TPopupMenu;
     SaveDialog: TSaveDialog;
     ScrollBox1: TScrollBox;
     SpinEdit1: TSpinEdit;
+    Splitter1: TSplitter;
+    Splitter2: TSplitter;
     StatusBar: TStatusBar;
     Timer: TTimer;
 
@@ -44,6 +54,8 @@ type
     procedure BitBtn2Click(Sender: TObject);
     procedure BitBtn3Click(Sender: TObject);
     procedure Button1Click(Sender: TObject);
+    procedure dirlistDblClick(Sender: TObject);
+    procedure filelistDblClick(Sender: TObject);
     procedure FormClose(Sender: TObject; var CloseAction: TCloseAction);
     procedure FormCreate(Sender: TObject);
     procedure MenuItem1Click(Sender: TObject);
@@ -51,6 +63,7 @@ type
     procedure MenuItem3Click(Sender: TObject);
     procedure MenuItem4Click(Sender: TObject);
     procedure MenuItem6Click(Sender: TObject);
+    procedure MenuItem8Click(Sender: TObject);
     procedure PaintBox1Click(Sender: TObject);
     procedure PaintBox1DblClick(Sender: TObject);
     procedure PaintBox1MouseWheel(Sender: TObject; Shift: TShiftState;
@@ -67,14 +80,18 @@ type
   public
     PB : TAnsiPaintbox;
     Procedure LoadSettings;
+    procedure loadfile(f:string);
     Procedure LoadDosPallete(n:string);
     Procedure ReLoadFile(fn:string);
+    procedure getdirs(cur:string);
+    procedure getfiles(dir:string);
   end;
 
 var
   Form1: TForm1;
   OpenedFile: String;
   SettingsLoaded:boolean = false;
+  workdir:string;
 
 implementation
 
@@ -84,20 +101,20 @@ implementation
 
 procedure TForm1.FormCreate(Sender: TObject);
 begin
-
   pb:=TANSIPaintbox.Create(scrollbox1.font);
   pb.font:=scrollbox1.font;
   loadsettings;
   scrollbox1.font.size:=spinedit1.value;
   paintbox1.font.size:=spinedit1.value;
   pb.font.size:=spinedit1.value;
+  workdir:=getcurrentdir;
   if fileexists(paramstr(1)) then begin
     if not pb.loadfromfile(paramstr(1)) then begin
       showmessage('Couldn not load file. Perhaps an unsupported format.');
       exit;
     end;
     statusbar.simpletext:=paramstr(1);
-
+    workdir:=extractfilepath(paramstr(1));
     Form1.Cursor := crHourGlass;
     paintbox1.cursor :=crHourGlass;
     timer.enabled:=false;
@@ -107,12 +124,14 @@ begin
     paintbox1.Width:=pb.buffer.width;
     paintbox1.height:=pb.buffer.height;
     PaintBox1Paint(sender);
-    form1.width:=pb.buffer.width+30;
+    form1.width:=pb.buffer.width+panel2.width+30;
     openedfile:=paramstr(1);
     if form1.width>screen.width then form1.width:=screen.width-100;
     form1.height:=pb.buffer.height+panel1.height+10;
     if form1.height>screen.height then form1.height:=screen.height-100;
   end;
+  getdirs(workdir);
+  getfiles(workdir);
 end;
 
 procedure TForm1.MenuItem1Click(Sender: TObject);
@@ -139,10 +158,13 @@ begin
          paintbox1.visible:=false;
          image1.visible:=true;
          image1.picture.loadfromfile(opendialog.filename);
-         form1.Width:=image1.width+10;
-         form1.height:=image1.height+panel1.height+statusbar.height+5;
-         if form1.width>screen.width then form1.width:=screen.width-100;
-         if form1.height>screen.height then form1.height:=screen.height-100;
+         if form1.windowstate<>wsMaximized then begin
+           form1.Width:=image1.width+panel2.width+20;
+           form1.height:=image1.height+panel1.height+statusbar.height+5;
+
+           if form1.width>screen.width then form1.width:=screen.width-100;
+           if form1.height>screen.height then form1.height:=screen.height-100;
+         end;
        end;
      end;
   end;
@@ -237,6 +259,62 @@ begin
   s:=(sender as tmenuitem).caption;
   LoadDosPallete(s);
   reloadfile(openedfile);
+end;
+
+procedure TForm1.MenuItem8Click(Sender: TObject);
+var
+  sc:RecSauceInfo;
+  commentid:array[1..5] of char;
+  l:array[1..64] of char;
+  fp:file;
+  i:word;
+  f:string;
+begin
+  if filelist.itemindex<0 then exit;
+  f:=IncludeTrailingPathDelimiter(workdir)+filelist.items[filelist.itemindex];
+  if not fileexists(f) then exit;
+  if not ReadSauceInfo(f,sc) then begin
+     ShowMessage('File contains no SAUCE Data.');
+     exit;
+  end;
+
+  form2.borderstyle:=bsdialog;
+  form2.width:=400;
+  form2.height:=200;
+  with form2 do begin
+    memo1.Color:=clblack;
+    memo1.Font.color:=clwhite;
+    memo1.lines.clear;
+    memo1.lines.add('Title  : '+sc.title);
+    memo1.lines.add('Author : '+sc.author);
+    memo1.lines.add('Group  : '+sc.Group);
+    memo1.lines.add('Date   : '+sc.date);
+    memo1.readonly:=true;
+  end;
+
+  //sauce comments
+  If sc.Comments>0 Then Begin
+    form2.memo1.lines.add('');
+    form2.memo1.lines.add('>> Comments ');
+    assignfile(fp,f);
+    reset(fp,1);
+    seek(fp,filesize(fp)-128-5-(sc.comments*64));
+    blockread(fp,commentid,5);
+    if commentid='COMNT' then begin
+      for i:=1 to sc.comments do begin
+        blockread(fp,l,64);
+        form2.memo1.lines.add(l);
+      End;
+    end;
+    closefile(fp);
+  End;
+
+  form2.showmodal;
+  form2.memo1.readonly:=false;
+  form2.memo1.lines.clear;
+  form2.memo1.Color:=cldefault;
+  form2.memo1.Font.color:=cldefault;
+  form2.borderstyle:=bssizeable;
 end;
 
 procedure TForm1.PaintBox1Click(Sender: TObject);
@@ -371,7 +449,43 @@ begin
   settingsloaded:=true;
 end;
 
-Procedure TForm1.LoadDosPallete (n:string);
+procedure TForm1.loadfile(f: string);
+var df1,df2:longint;
+  ext:string;
+begin
+  if fileexists(f) then begin
+     statusbar.simpletext:=f;
+     timer.enabled:=false;
+     ext:=uppercase(extractfileext(f));
+     case ext of
+       '.ANS','.ASC','.DIZ','.NFO': Begin
+         ReLoadfile(f);
+         image1.visible:=false;
+         paintbox1.visible:=true;
+         paintbox1.OnPaint(nil);
+         ReLoadfile(f);
+         paintbox1.OnPaint(nil);
+       end;
+       '.BMP','.XPM','.PNG','.PBM',
+       '.PPM','.ICO','.ICNS','.CUR',
+       '.JPG','.PEG','.JPE','.FIF',
+       '.TIF','.TIFF','.GIF': begin
+         paintbox1.visible:=false;
+         image1.visible:=true;
+         image1.picture.loadfromfile(f);
+         if form1.windowstate<>wsMaximized then begin
+           form1.Width:=image1.width+panel2.width+20;
+           form1.height:=image1.height+panel1.height+statusbar.height+5;
+
+           if form1.width>screen.width then form1.width:=screen.width-100;
+           if form1.height>screen.height then form1.height:=screen.height-100;
+         end;
+       end;
+     end;
+  end;
+end;
+
+procedure TForm1.LoadDosPallete(n: string);
 var
   tmpdc:tdoscolors;
   ini:tinifile;
@@ -421,6 +535,44 @@ begin
   if form1.width>screen.width then form1.width:=screen.width-100;
   form1.height:=pb.buffer.height+panel1.height+10;
   if form1.height>screen.height then form1.height:=screen.height-100;
+end;
+
+procedure TForm1.getdirs(cur: string);
+var
+  searchResult : TSearchRec;
+begin
+  dirlist.clear;
+  dirlist.items.add('[Up One Level]');
+  cur:=IncludeTrailingPathDelimiter(cur);
+  if findfirst(cur+'*', faDirectory, searchResult) = 0 then
+  begin
+    repeat
+      // Only show directories
+      if (searchResult.attr and faDirectory) = faDirectory
+      then if (searchResult.Name<>'.') and (searchResult.Name<>'..') then dirlist.items.add(searchResult.Name);
+    until FindNext(searchResult) <> 0;
+
+    // Must free up resources used by these successful finds
+    FindClose(searchResult);
+  end;
+end;
+
+procedure TForm1.getfiles(dir: string);
+var
+  Files: TStringList;
+  i:integer;
+begin
+  filelist.clear;
+  Files := TStringList.Create;
+  dir:=IncludeTrailingPathDelimiter(dir);
+  try
+    FindAllFiles(Files, dir, '*.ans;*.asc;*.diz;*.txt;*.png;*.jpg', false); //find e.g. all pascal sourcefiles
+  finally
+    if files.count<>0 then
+      for i:=0 to files.count-1 do filelist.items.add(extractfilename(files[i]));
+    Files.Free;
+  end;
+
 end;
 
 procedure TForm1.FormClose(Sender: TObject; var CloseAction: TCloseAction);
@@ -493,6 +645,27 @@ begin
   if form1.width>screen.width then form1.width:=screen.width-100;
   form1.height:=pb.buffer.height+panel1.height+10;
   if form1.height>screen.height then form1.height:=screen.height-100;
+end;
+
+procedure TForm1.dirlistDblClick(Sender: TObject);
+begin
+  if dirlist.itemindex<0 then exit;
+  if dirlist.itemindex=0 then begin
+     setcurrentdir(IncludeTrailingPathDelimiter(workdir)+'..');
+     workdir:=getcurrentdir;
+   end else begin
+     setcurrentdir(IncludeTrailingPathDelimiter(workdir)+dirlist.items[dirlist.itemindex]);
+     workdir:=getcurrentdir;
+   end;
+   statusbar.panels[1].text:=workdir;
+   getdirs(workdir);
+   getfiles(workdir);
+end;
+
+procedure TForm1.filelistDblClick(Sender: TObject);
+begin
+  if filelist.itemindex<0 then exit;
+  LoadFile(IncludeTrailingPathDelimiter(workdir)+filelist.Items[filelist.itemindex]);
 end;
 
 end.
