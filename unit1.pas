@@ -54,8 +54,11 @@ type
     procedure BitBtn2Click(Sender: TObject);
     procedure BitBtn3Click(Sender: TObject);
     procedure Button1Click(Sender: TObject);
+    procedure dirlistClick(Sender: TObject);
     procedure dirlistDblClick(Sender: TObject);
+    procedure dirlistKeyPress(Sender: TObject; var Key: char);
     procedure filelistDblClick(Sender: TObject);
+    procedure filelistKeyPress(Sender: TObject; var Key: char);
     procedure FormClose(Sender: TObject; var CloseAction: TCloseAction);
     procedure FormCreate(Sender: TObject);
     procedure MenuItem1Click(Sender: TObject);
@@ -454,17 +457,39 @@ var df1,df2:longint;
   ext:string;
 begin
   if fileexists(f) then begin
+     form1.caption:='xAnsiViewer - '+extractfilename(f);
      statusbar.simpletext:=f;
      timer.enabled:=false;
      ext:=uppercase(extractfileext(f));
      case ext of
-       '.ANS','.ASC','.DIZ','.NFO': Begin
-         ReLoadfile(f);
+       '.ANS','.ASC','.DIZ','.NFO','.TXT': Begin
+
          image1.visible:=false;
          paintbox1.visible:=true;
-         paintbox1.OnPaint(nil);
-         ReLoadfile(f);
-         paintbox1.OnPaint(nil);
+
+         workdir:=extractfilepath(f);
+         pb.ResetCanvas;
+         pb.clearcanvas;
+         if not pb.loadfromfile(f) then begin
+            showmessage('Couldn not load file. Perhaps an unsupported format.');
+            exit;
+         end;
+         pb.PrintFile;
+         paintbox1.OnPaint(owner);
+
+
+         paintbox1.Width:=pb.buffer.width;
+         paintbox1.height:=pb.buffer.height;
+         PaintBox1Paint(owner);
+         form1.width:=pb.buffer.width+panel2.width+30;
+
+         if form1.windowstate<>wsMaximized then begin
+           form1.Width:=paintbox1.width+panel2.width+20;
+           form1.height:=paintbox1.height+panel1.height+statusbar.height+5;
+
+           if form1.width>screen.width then form1.width:=screen.width-100;
+           if form1.height>screen.height then form1.height:=screen.height-100;
+         end;
        end;
        '.BMP','.XPM','.PNG','.PBM',
        '.PPM','.ICO','.ICNS','.CUR',
@@ -542,7 +567,8 @@ var
   searchResult : TSearchRec;
 begin
   dirlist.clear;
-  dirlist.items.add('[Up One Level]');
+  dirlist.items.add('..');
+  //dirlist.items.add('[Up One Level]');
   cur:=IncludeTrailingPathDelimiter(cur);
   if findfirst(cur+'*', faDirectory, searchResult) = 0 then
   begin
@@ -647,6 +673,11 @@ begin
   if form1.height>screen.height then form1.height:=screen.height-100;
 end;
 
+procedure TForm1.dirlistClick(Sender: TObject);
+begin
+
+end;
+
 procedure TForm1.dirlistDblClick(Sender: TObject);
 begin
   if dirlist.itemindex<0 then exit;
@@ -662,10 +693,22 @@ begin
    getfiles(workdir);
 end;
 
+procedure TForm1.dirlistKeyPress(Sender: TObject; var Key: char);
+begin
+  if key=#13 then dirlistDblClick(nil);
+end;
+
 procedure TForm1.filelistDblClick(Sender: TObject);
 begin
   if filelist.itemindex<0 then exit;
   LoadFile(IncludeTrailingPathDelimiter(workdir)+filelist.Items[filelist.itemindex]);
+end;
+
+procedure TForm1.filelistKeyPress(Sender: TObject; var Key: char);
+begin
+  if key = #13 then begin
+    filelistDblClick(nil);
+  end;
 end;
 
 end.
